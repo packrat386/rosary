@@ -3,47 +3,21 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"log"
-	"net"
 	"sync"
 	"time"
 )
 
-func main() {
-	cantor := NewCantor()
-	go cantor.chant()
-
-	l, err := net.Listen("tcp", ":6724")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer l.Close()
-
-	log.Println("server initialized")
-
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		log.Println("got connection from: ", conn.RemoteAddr())
-		f := NewFollower(conn, 100*time.Millisecond, cantor)
-		go f.poll()
-	}
-}
-
 type Cantor struct {
 	lock  *sync.RWMutex
 	state *bytes.Buffer
+	beat  time.Duration
 }
 
 func NewCantor() *Cantor {
 	return &Cantor{
 		lock:  new(sync.RWMutex),
 		state: new(bytes.Buffer),
+		beat:  configBeat(),
 	}
 }
 
@@ -237,7 +211,7 @@ func (c *Cantor) resetState() {
 	defer c.lock.RUnlock()
 
 	c.state.Reset()
-	c.state.WriteString("\u001B[2J\u001B[H\n\n")
+	c.state.WriteString("\u001B[2J\u001B[3J\u001B[H\n\n")
 }
 
 func (c *Cantor) appendState(s string) {
@@ -247,37 +221,7 @@ func (c *Cantor) appendState(s string) {
 	c.state.WriteString(s)
 }
 
-const syllableDuration = 500 * time.Millisecond
-
-func (c *Cantor) sayLine(line string, syllables int64) {
+func (c *Cantor) sayLine(line string, beats int64) {
 	c.appendState(line)
-	time.Sleep(time.Duration(syllables) * syllableDuration)
-}
-
-type Follower struct {
-	w io.Writer
-	t time.Duration
-	c *Cantor
-}
-
-func NewFollower(w io.Writer, t time.Duration, c *Cantor) *Follower {
-	return &Follower{
-		w: w,
-		t: t,
-		c: c,
-	}
-}
-
-func (f *Follower) poll() {
-	ticker := time.Tick(f.t)
-
-	for _ = range ticker {
-		data := f.c.getState()
-
-		_, err := f.w.Write(data)
-		if err != nil {
-			log.Println("connection closed: ", err.Error())
-			return
-		}
-	}
+	time.Sleep(time.Duration(beats) * c.beat)
 }
