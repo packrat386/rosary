@@ -27,7 +27,7 @@ func (f *Follower) poll() {
 	cache := []byte{}
 
 	for _ = range ticker {
-		data := f.c.getState()
+		data := f.c.getDisplay()
 
 		if bytes.Equal(cache, data) {
 			continue

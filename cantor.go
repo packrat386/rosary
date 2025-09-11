@@ -3,28 +3,35 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
 
 type Cantor struct {
-	lock  *sync.RWMutex
-	state *bytes.Buffer
-	beat  time.Duration
+	lock    *sync.RWMutex
+	display *bytes.Buffer
+	beat    time.Duration
+	pos     int64
 }
 
 func NewCantor() *Cantor {
 	return &Cantor{
-		lock:  new(sync.RWMutex),
-		state: new(bytes.Buffer),
-		beat:  configBeat(),
+		lock:    new(sync.RWMutex),
+		display: new(bytes.Buffer),
+		beat:    configBeat(),
 	}
 }
 
-func (c *Cantor) chant() {
-	c.resetState()
+func (c *Cantor) reset() {
+	c.pos = 0
+	c.resetDisplay()
+}
 
+func (c *Cantor) chant() {
 	for {
+		c.reset()
+
 		mysteries := todaysMysteries()
 
 		c.sayApostlesCreed()
@@ -39,6 +46,7 @@ func (c *Cantor) chant() {
 			c.sayDecade()
 		}
 
+		c.announceIntention()
 		c.sayHailHolyQueen()
 	}
 }
@@ -86,7 +94,7 @@ func todaysMysteries() []string {
 }
 
 func (c *Cantor) announceMystery(l string) {
-	c.resetState()
+	c.resetDisplay()
 	c.sayLine(l, 15)
 	c.breath()
 	c.breath()
@@ -95,7 +103,7 @@ func (c *Cantor) announceMystery(l string) {
 }
 
 func (c *Cantor) announceIntention() {
-	c.resetState()
+	c.resetDisplay()
 	c.sayLine("This rosary is offered for peace. Now more than ever.\n", 15)
 	c.breath()
 	c.breath()
@@ -113,7 +121,7 @@ func (c *Cantor) sayDecade() {
 }
 
 func (c *Cantor) sayApostlesCreed() {
-	c.resetState()
+	c.resetDisplay()
 	c.sayLine("I believe in God,\n", 5)
 	c.sayLine("the Father almighty,\n", 5)
 	c.sayLine("Creator of heaven and earth,\n", 8)
@@ -136,10 +144,12 @@ func (c *Cantor) sayApostlesCreed() {
 	c.sayLine("Amen.\n", 2)
 	c.breath()
 	c.breath()
+
+	c.pos += 1
 }
 
 func (c *Cantor) sayOurFather() {
-	c.resetState()
+	c.resetDisplay()
 	c.sayLine("Our Father, who art in heaven,\n", 7)
 	c.sayLine("hallowed be thy name;\n", 5)
 	c.sayLine("thy kingdom come;\n", 4)
@@ -152,10 +162,12 @@ func (c *Cantor) sayOurFather() {
 	c.sayLine("Amen\n", 2)
 	c.breath()
 	c.breath()
+
+	c.pos += 1
 }
 
 func (c *Cantor) sayHailMary() {
-	c.resetState()
+	c.resetDisplay()
 	c.sayLine("Hail, Mary,\n", 3)
 	c.sayLine("full of grace,\n", 3)
 	c.sayLine("the Lord is with thee.\n", 5)
@@ -166,20 +178,24 @@ func (c *Cantor) sayHailMary() {
 	c.sayLine("now and at the hour of our death.\n", 9)
 	c.sayLine("Amen.\n", 2)
 	c.breath()
+
+	c.pos += 1
 }
 
 func (c *Cantor) sayGloryBe() {
-	c.resetState()
+	c.resetDisplay()
 	c.sayLine("Glory be to the Father, the Son, and the Holy Spirit;\n", 15)
 	c.sayLine("as it was in the beginning, is now, and ever shall be,\n", 15)
 	c.sayLine("world without end.\n", 4)
 	c.sayLine("Amen.\n", 2)
 	c.breath()
 	c.breath()
+
+	c.pos += 1
 }
 
 func (c *Cantor) sayHailHolyQueen() {
-	c.resetState()
+	c.resetDisplay()
 	c.sayLine("Hail, holy Queen, mother of mercy,\n", 9)
 	c.sayLine("our life, our sweetness, and our hope.\n", 8)
 	c.sayLine("To you we cry, poor banished children of Eve;\n", 11)
@@ -199,29 +215,36 @@ func (c *Cantor) breath() {
 	c.sayLine(".\n", 4)
 }
 
-func (c *Cantor) getState() []byte {
+func (c *Cantor) getDisplay() []byte {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return c.state.Bytes()
+	return c.display.Bytes()
 }
 
-func (c *Cantor) resetState() {
+func (c *Cantor) resetDisplay() {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	c.state.Reset()
-	c.state.WriteString("\u001B[2J\u001B[3J\u001B[H\n\n")
+	c.display.Reset()
+	c.display.WriteString("\u001B[2J\u001B[3J\u001B[H\n\n")
+
+	c.display.WriteString("+Oooo-Ooooooooooo-Ooooooooooo-Ooooooooooo-Ooooooooooo-Ooooooooooo-@\n")
+
+	spaces := []byte(strings.Repeat(" ", 67))
+	spaces[c.pos] = '^'
+	c.display.Write(spaces)
+	c.display.WriteString("\n\n")
 }
 
-func (c *Cantor) appendState(s string) {
+func (c *Cantor) appendDisplay(s string) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	c.state.WriteString(s)
+	c.display.WriteString(s)
 }
 
 func (c *Cantor) sayLine(line string, beats int64) {
-	c.appendState(line)
+	c.appendDisplay(line)
 	time.Sleep(time.Duration(beats) * c.beat)
 }
