@@ -9,7 +9,7 @@ import (
 )
 
 type Cantor struct {
-	lock    *sync.RWMutex
+	lock    *sync.Mutex
 	display *bytes.Buffer
 	beat    time.Duration
 	pos     int64
@@ -17,7 +17,7 @@ type Cantor struct {
 
 func NewCantor() *Cantor {
 	return &Cantor{
-		lock:    new(sync.RWMutex),
+		lock:    new(sync.Mutex),
 		display: new(bytes.Buffer),
 		beat:    configBeat(),
 	}
@@ -216,15 +216,15 @@ func (c *Cantor) breath() {
 }
 
 func (c *Cantor) getDisplay() []byte {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	return c.display.Bytes()
 }
 
 func (c *Cantor) resetDisplay() {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	c.display.Reset()
 	c.display.WriteString("\u001B[2J\u001B[3J\u001B[H\n\n")
@@ -238,8 +238,8 @@ func (c *Cantor) resetDisplay() {
 }
 
 func (c *Cantor) appendDisplay(s string) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	c.display.WriteString(s)
 }
